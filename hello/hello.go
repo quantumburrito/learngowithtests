@@ -9,7 +9,6 @@ const englishWorld = "World"
 const frenchWorld = "Monde"
 const spanishWorld = "Mundo"
 const spanish = "Spanish"
-const english = "English"
 const french = "French"
 
 func Hello(name, language string) string {
