@@ -3,17 +3,17 @@ name: Go Build and Test
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        directory: ${{ toJSON(needs.packages.outputs.packages) }}
+        directory: ${{ fromJSON(steps.find-packages.outputs.packages) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -21,20 +21,26 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23' # Specify your Go version here
+          go-version: '1.20'  # Adjust to your Go version
 
       - name: Find all packages
-        id: packages
+        id: find-packages
         run: |
-          # Find all directories containing go.mod files (assume each sub-package has a go.mod file)
+          # Find all directories containing go.mod files
           packages=$(find . -name "go.mod" -exec dirname {} \;)
-          echo "::set-output name=packages::$(echo $packages | jq -R -s 'split("\n")[:-1]')"
+          if [ -z "$packages" ]; then
+            echo "No packages found"
+            packages="[]"  # Set an empty array to prevent null errors
+          fi
+          echo "::set-output name=packages::$(echo $packages | jq -R -s 'split("\n")[:-1]' | jq -c '.')"
 
       - name: Build and Test Each Package
         working-directory: ${{ matrix.directory }}
         run: |
-          # Build the package
+          echo "Building and testing package in directory: ${{ matrix.directory }}"
+
+          # Build the Go package
           go build ./...
 
-          # Run tests
+          # Run tests for the Go package
           go test ./... -v
