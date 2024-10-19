@@ -3,21 +3,40 @@ name: Go Build and Test
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
-  build-and-test:
+  find-packages:
     runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}  # Define job-level output for packages
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    # Add a check to ensure this job only runs if packages are found
-    if: ${{ steps.find-packages.outputs.packages != '[]' }}
+      - name: Set up jq
+        run: sudo apt-get install jq
 
+      - name: Find all packages
+        id: packages
+        run: |
+          # Find all directories containing go.mod files
+          packages=$(find . -name "go.mod" -exec dirname {} \;)
+          if [ -z "$packages" ]; then
+            echo "No packages found"
+            packages="[]"  # Set an empty array to prevent null errors
+          fi
+          echo "::set-output name=packages::$(echo $packages | jq -R -s 'split(\"\\n\")[:-1]' | jq -c '.')"
+
+  build-and-test:
+    needs: find-packages  # This job depends on the find-packages job
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        directory: ${{ fromJSON(steps.find-packages.outputs.packages) }}
+        directory: ${{ fromJSON(needs.find-packages.outputs.packages) }}  # Use job-level output
 
     steps:
       - name: Checkout repository
@@ -27,17 +46,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.20'  # Adjust to your Go version
-
-      - name: Find all packages
-        id: find-packages
-        run: |
-          # Find all directories containing go.mod files
-          packages=$(find . -name "go.mod" -exec dirname {} \;)
-          if [ -z "$packages" ]; then
-            echo "No packages found"
-            packages="[]"  # Set an empty array to prevent null errors
-          fi
-          echo "::set-output name=packages::$(echo $packages | jq -R -s 'split(\"\\n\")[:-1]' | jq -c '.')"
 
       - name: Build and Test Each Package
         working-directory: ${{ matrix.directory }}
