@@ -11,9 +11,14 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    # Add a check to ensure this job only runs if packages are found
+    if: ${{ steps.find-packages.outputs.packages != '[]' }}
+
     strategy:
       matrix:
         directory: ${{ fromJSON(steps.find-packages.outputs.packages) }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -32,7 +37,7 @@ jobs:
             echo "No packages found"
             packages="[]"  # Set an empty array to prevent null errors
           fi
-          echo "::set-output name=packages::$(echo $packages | jq -R -s 'split("\n")[:-1]' | jq -c '.')"
+          echo "::set-output name=packages::$(echo $packages | jq -R -s 'split(\"\\n\")[:-1]' | jq -c '.')"
 
       - name: Build and Test Each Package
         working-directory: ${{ matrix.directory }}
